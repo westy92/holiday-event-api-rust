@@ -2,6 +2,15 @@
 name = "holiday_event_api"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "The Official Holiday and Event API for Rust."
+documentation = "https://docs.rs/holiday_event_api"
+homepage = "https://github.com/westy92/holiday-event-api-rust"
+repository = "https://github.com/westy92/holiday-event-api-rust.git"
+readme = "README.md"
+categories = ["date-and-time", "api-bindings", "asynchronous", "authentication", "web-programming"]
+keywords = ["holiday", "holidays", "event", "api", "checkiday"]
+authors = ["Seth Westphal", "Westy92 LLC"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
