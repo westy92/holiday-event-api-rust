@@ -1,0 +1,16 @@
+[package]
+name = "holiday_event_api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] }
+rustc_version_runtime = "0.2.1"
+serde = { version = "1.0.160", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+mockito = "1.0.2"
+tokio-test = "*"
