@@ -130,7 +130,6 @@ mod tests {
             let mock = server.mock("GET", "/events")
                 .match_query(mockito::Matcher::Any)
                 .match_header("apikey", "abc123")
-                .with_status(200)
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
@@ -148,7 +147,6 @@ mod tests {
             let mock = server.mock("GET", "/events")
                 .match_query(mockito::Matcher::Any)
                 .match_header("user-agent", format!("HolidayApiRust/{app_version}").as_str())
-                .with_status(200)
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
@@ -166,7 +164,6 @@ mod tests {
             let mock = server.mock("GET", "/events")
                 .match_query(mockito::Matcher::Any)
                 .match_header("x-platform-version", app_version.as_str())
-                .with_status(200)
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
@@ -283,7 +280,6 @@ mod tests {
 
             let mock = server.mock("GET", "/events")
                 .match_query(mockito::Matcher::Any)
-                .with_status(200)
                 .with_header("X-RateLimit-Limit-Month", "100")
                 .with_header("x-ratelimit-remaining-month", "88")
                 .with_body_from_file("testdata/getEvents-default.json")
@@ -296,6 +292,74 @@ mod tests {
             let result = result.unwrap();
             assert_eq!(100, result.get_rate_limit().limit_month);
             assert_eq!(88, result.get_rate_limit().remaining_month);
+
+            mock.assert();
+        }
+    }
+
+    mod get_events {
+        use mockito::Matcher;
+
+        use super::*;
+
+        #[test]
+        fn fetches_with_default_parameters() {
+            let mut server = mockito::Server::new();
+
+            let mock = server.mock("GET", "/events")
+                .match_query(mockito::Matcher::Any)
+                .with_body_from_file("testdata/getEvents-default.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_events(model::GetEventsRequest { date: None, adult: None, timezone: None }));
+            
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(false, result.adult);
+            assert_eq!("America/Chicago", result.timezone);
+            assert_eq!(2, result.events.len());
+            assert_eq!(1, result.multiday_starting.len());
+            assert_eq!(2, result.multiday_ongoing.len());
+            assert_eq!(&model::EventSummary {
+                id: "b80630ae75c35f34c0526173dd999cfc".into(),
+                name: "Cinco de Mayo".into(),
+                url: "https://www.checkiday.com/b80630ae75c35f34c0526173dd999cfc/cinco-de-mayo".into(),
+            }, result.events.get(0).unwrap());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn fetches_with_set_parameters() {
+            let mut server = mockito::Server::new();
+
+            let mock = server.mock("GET", "/events")
+                .match_query(Matcher::AllOf(vec![
+                    Matcher::UrlEncoded("adult".into(), "true".into()),
+                    Matcher::UrlEncoded("timezone".into(), "America/New_York".into()),
+                    Matcher::UrlEncoded("date".into(), "7/16/1992".into()),
+                ]))
+                .with_body_from_file("testdata/getEvents-parameters.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_events(model::GetEventsRequest { 
+                date: Some("7/16/1992".into()), adult: Some(true), timezone: Some("America/New_York".into()) 
+            }));
+            
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(true, result.adult);
+            assert_eq!("America/New_York", result.timezone);
+            assert_eq!(2, result.events.len());
+            assert_eq!(0, result.multiday_starting.len());
+            assert_eq!(1, result.multiday_ongoing.len());
+            assert_eq!(&model::EventSummary {
+                id: "6ebb6fd5e483de2fde33969a6c398472".into(),
+                name: "Get to Know Your Customers Day".into(),
+                url: "https://www.checkiday.com/6ebb6fd5e483de2fde33969a6c398472/get-to-know-your-customers-day".into(),
+            }, result.events.get(0).unwrap());
 
             mock.assert();
         }
