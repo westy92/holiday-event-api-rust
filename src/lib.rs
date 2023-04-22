@@ -40,6 +40,7 @@ impl HolidayEventApi {
         })
     }
 
+    /// Gets the Events for the provided Date
     pub async fn get_events(&self, request: model::GetEventsRequest) -> Result<model::GetEventsResponse, String> {
         let mut params: HashMap<String, String> = HashMap::from([]);
 
@@ -56,10 +57,31 @@ impl HolidayEventApi {
         self.request("events".into(), params).await
     }
 
+    /// Gets the Event Info for the provided Event
+    pub async fn get_event_info(&self, request: model::GetEventInfoRequest) -> Result<model::GetEventInfoResponse, String> {
+        let mut params: HashMap<String, String> = HashMap::from([]);
+
+        if request.id.is_empty() {
+            return Err("Event id is required.".into());
+        }
+
+        params.insert("id".into(), request.id);
+
+        if let Some(start) = request.start {
+            params.insert("start".into(), start.to_string());
+        }
+
+        if let Some(end) = request.end {
+            params.insert("end".into(), end.to_string());
+        }
+
+        self.request("event".into(), params).await
+    }
+
     async fn request<T>(&self, path: String, params: HashMap<String, String>) -> Result<T, String> where T: serde::de::DeserializeOwned + std::fmt::Debug + model::RateLimited {
         let mut url = self.base_url.join(&path.to_string()).unwrap();
         url.query_pairs_mut().extend_pairs(params);
-        
+
         let res = self.client.get(url).send().await;
         if res.is_err() {
             let err = res.unwrap_err().to_string();
@@ -94,6 +116,7 @@ impl HolidayEventApi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockito::{Matcher, Server};
 
     macro_rules! aw {
         ($e:expr) => {
@@ -125,10 +148,10 @@ mod tests {
 
         #[test]
         fn passes_along_api_key() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .match_header("apikey", "abc123")
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
@@ -141,11 +164,11 @@ mod tests {
 
         #[test]
         fn passes_along_user_agent() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let app_version = env!("CARGO_PKG_VERSION");
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .match_header("user-agent", format!("HolidayApiRust/{app_version}").as_str())
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
@@ -158,11 +181,11 @@ mod tests {
 
         #[test]
         fn passes_along_platform_version() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let app_version = rustc_version_runtime::version().to_string();
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .match_header("x-platform-version", app_version.as_str())
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
@@ -175,10 +198,10 @@ mod tests {
 
         #[test]
         fn passes_along_error() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_status(401)
                 .with_body("{\"error\":\"MyError!\"}")
                 .create();
@@ -193,10 +216,10 @@ mod tests {
 
         #[test]
         fn server_error_500() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_status(500)
                 .create();
 
@@ -210,10 +233,10 @@ mod tests {
 
         #[test]
         fn server_error_unknown() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_status(599)
                 .create();
 
@@ -236,10 +259,10 @@ mod tests {
 
         #[test]
         fn server_error_malformed_response() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_body("{")
                 .create();
 
@@ -253,17 +276,17 @@ mod tests {
 
         #[test]
         fn follows_redirects() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let url = server.url();
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_status(302)
                 .with_header("Location", format!("{url}/redirected").as_str())
                 .create();
 
             let mock2 = server.mock("GET", "/redirected")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
@@ -276,10 +299,10 @@ mod tests {
 
         #[test]
         fn reports_rate_limits() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_header("X-RateLimit-Limit-Month", "100")
                 .with_header("x-ratelimit-remaining-month", "88")
                 .with_body_from_file("testdata/getEvents-default.json")
@@ -298,22 +321,20 @@ mod tests {
     }
 
     mod get_events {
-        use mockito::Matcher;
-
         use super::*;
 
         #[test]
         fn fetches_with_default_parameters() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
-                .match_query(mockito::Matcher::Any)
+                .match_query(Matcher::Any)
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest { date: None, adult: None, timezone: None }));
-            
+
             assert!(result.is_ok());
             let result = result.unwrap();
             assert_eq!(false, result.adult);
@@ -332,7 +353,7 @@ mod tests {
 
         #[test]
         fn fetches_with_set_parameters() {
-            let mut server = mockito::Server::new();
+            let mut server = Server::new();
 
             let mock = server.mock("GET", "/events")
                 .match_query(Matcher::AllOf(vec![
@@ -344,10 +365,10 @@ mod tests {
                 .create();
 
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
-            let result = aw!(api.get_events(model::GetEventsRequest { 
-                date: Some("7/16/1992".into()), adult: Some(true), timezone: Some("America/New_York".into()) 
+            let result = aw!(api.get_events(model::GetEventsRequest {
+                date: Some("7/16/1992".into()), adult: Some(true), timezone: Some("America/New_York".into())
             }));
-            
+
             assert!(result.is_ok());
             let result = result.unwrap();
             assert_eq!(true, result.adult);
@@ -362,6 +383,97 @@ mod tests {
             }, result.events.get(0).unwrap());
 
             mock.assert();
+        }
+    }
+
+    mod get_event_info {
+        use super::*;
+
+        #[test]
+        fn fetches_with_default_parameters() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/event")
+                .match_query(Matcher::UrlEncoded("id".into(), "f90b893ea04939d7456f30c54f68d7b4".into()))
+                .with_body_from_file("testdata/getEventInfo-default.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_event_info(model::GetEventInfoRequest { id: "f90b893ea04939d7456f30c54f68d7b4".into(), start: None, end: None }));
+
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!("f90b893ea04939d7456f30c54f68d7b4", result.event.id);
+            assert_eq!(2, result.event.hashtags.len());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn fetches_with_set_parameters() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/event")
+                .match_query(Matcher::AllOf(vec![
+                    Matcher::UrlEncoded("id".into(), "f90b893ea04939d7456f30c54f68d7b4".into()),
+                    Matcher::UrlEncoded("start".into(), "2002".into()),
+                    Matcher::UrlEncoded("end".into(), "2003".into()),
+                ]))
+                .with_body_from_file("testdata/getEventInfo-parameters.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_event_info(model::GetEventInfoRequest {
+                id: "f90b893ea04939d7456f30c54f68d7b4".into(), start: Some(2002), end: Some(2003)
+            }));
+
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(2, result.event.occurrences.len());
+            assert_eq!(&model::Occurrence {
+                date: model::OccurrenceDate::Date("08/08/2002".into()),
+                length: 1,
+            }, result.event.occurrences.get(0).unwrap());
+            assert_eq!(&model::Occurrence {
+                date: model::OccurrenceDate::Timestamp(1734772794),
+                length: 1,
+            }, result.event.occurrences.get(1).unwrap());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn invalid_event() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/event")
+                .match_query(Matcher::AllOf(vec![
+                    Matcher::UrlEncoded("id".into(), "hi".into()),
+                ]))
+                .with_status(404)
+                .with_body("{\"error\":\"Event not found.\"}")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_event_info(model::GetEventInfoRequest {
+                id: "hi".into(), start: None, end: None,
+            }));
+
+            assert!(result.is_err());
+            assert_eq!("Event not found.", result.unwrap_err());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn missing_id() {
+            let api = HolidayEventApi::new("abc123".into(), None).unwrap();
+            let result = aw!(api.get_event_info(model::GetEventInfoRequest {
+                id: "".into(), start: None, end: None,
+            }));
+
+            assert!(result.is_err());
+            assert_eq!("Event id is required.", result.unwrap_err());
         }
     }
 }
