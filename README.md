@@ -1,5 +1,7 @@
 # The Official Holiday and Event API for Rust
 
+[![Crates.io](https://img.shields.io/crates/v/holiday_event_api)](https://crates.io/crates/holiday_event_api)
+[![docs.rs](https://img.shields.io/docsrs/holiday_event_api)](https://docs.rs/holiday_event_api)
 [![Funding Status](https://img.shields.io/github/sponsors/westy92)](https://github.com/sponsors/westy92)
 
 Industry-leading Holiday and Event API for Rust. Over 5,000 holidays and thousands of descriptions. Trusted by the World’s leading companies. Built by developers for developers since 2011.
