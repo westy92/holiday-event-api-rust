@@ -265,7 +265,13 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), Some(fake_url)).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest { date: None, adult: None, timezone: None }));
 
-            assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 61)", result.unwrap_err());
+            if cfg!(target_os = "macos") {
+                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 61)", result.unwrap_err());
+            } else if cfg!(target_os = "linux") {
+                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 111)", result.unwrap_err());
+            } else {
+                assert_eq!("Not Found", result.unwrap_err());
+            }
         }
 
         #[test]
