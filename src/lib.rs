@@ -42,9 +42,8 @@ impl HolidayEventApi {
 
     /// Gets the Events for the provided Date
     pub async fn get_events(&self, request: model::GetEventsRequest) -> Result<model::GetEventsResponse, String> {
-        let mut params: HashMap<String, String> = HashMap::from([]);
-
-        params.insert("adult".into(), request.adult.unwrap_or(false).to_string());
+        let mut params: HashMap<String, String> = HashMap::from([
+            ("adult".into(), request.adult.unwrap_or(false).to_string())]);
 
         if let Some(tz) = request.timezone {
             params.insert("timezone".into(), tz);
@@ -59,13 +58,11 @@ impl HolidayEventApi {
 
     /// Gets the Event Info for the provided Event
     pub async fn get_event_info(&self, request: model::GetEventInfoRequest) -> Result<model::GetEventInfoResponse, String> {
-        let mut params: HashMap<String, String> = HashMap::from([]);
-
         if request.id.is_empty() {
             return Err("Event id is required.".into());
         }
 
-        params.insert("id".into(), request.id);
+        let mut params: HashMap<String, String> = HashMap::from([("id".into(), request.id)]);
 
         if let Some(start) = request.start {
             params.insert("start".into(), start.to_string());
@@ -76,6 +73,20 @@ impl HolidayEventApi {
         }
 
         self.request("event".into(), params).await
+    }
+
+    /// Searches for Events with the given criteria
+    pub async fn search(&self, request: model::SearchRequest) -> Result<model::SearchResponse, String> {
+        if request.query.is_empty() {
+            return Err("Search query is required.".into());
+        }
+
+        let params: HashMap<String, String> = HashMap::from([
+            ("query".into(), request.query),
+            ("adult".into(), request.adult.unwrap_or(false).to_string()),
+        ]);
+
+        self.request("search".into(), params).await
     }
 
     async fn request<T>(&self, path: String, params: HashMap<String, String>) -> Result<T, String> where T: serde::de::DeserializeOwned + std::fmt::Debug + model::RateLimited {
@@ -474,6 +485,110 @@ mod tests {
 
             assert!(result.is_err());
             assert_eq!("Event id is required.", result.unwrap_err());
+        }
+    }
+
+    mod search {
+        use super::*;
+
+        #[test]
+        fn fetches_with_default_parameters() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/search")
+                .match_query(Matcher::UrlEncoded("query".into(), "zucchini".into()))
+                .with_body_from_file("testdata/search-default.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.search(model::SearchRequest { query: "zucchini".into(), adult: None }));
+
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(false, result.adult);
+            assert_eq!("zucchini", result.query);
+            assert_eq!(3, result.events.len());
+            assert_eq!(&model::EventSummary {
+                id: "cc81cbd8730098456f85f69798cbc867".into(),
+                name: "National Zucchini Bread Day".into(),
+                url: "https://www.checkiday.com/cc81cbd8730098456f85f69798cbc867/national-zucchini-bread-day".into(),
+            }, result.events.get(0).unwrap());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn fetches_with_set_parameters() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/search")
+                .match_query(Matcher::UrlEncoded("query".into(), "porch day".into()))
+                .match_query(Matcher::UrlEncoded("adult".into(), "true".into()))
+                .with_body_from_file("testdata/search-parameters.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.search(model::SearchRequest { query: "porch day".into(), adult: Some(true) }));
+
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(true, result.adult);
+            assert_eq!("porch day", result.query);
+            assert_eq!(1, result.events.len());
+            assert_eq!(&model::EventSummary {
+                id: "61363236f06e4eb8e4e14e5925c2503d".into(),
+                name: "Sneak Some Zucchini Onto Your Neighbor's Porch Day".into(),
+                url: "https://www.checkiday.com/61363236f06e4eb8e4e14e5925c2503d/sneak-some-zucchini-onto-your-neighbors-porch-day".into(),
+            }, result.events.get(0).unwrap());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn query_too_short() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/search")
+                .match_query(Matcher::UrlEncoded("query".into(), "a".into()))
+                .with_status(400)
+                .with_body("{\"error\":\"Please enter a longer search term.\"}")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.search(model::SearchRequest { query: "a".into(), adult: None }));
+
+            assert!(result.is_err());
+            assert_eq!("Please enter a longer search term.", result.unwrap_err());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn too_many_results() {
+            let mut server = Server::new();
+
+            let mock = server.mock("GET", "/search")
+                .match_query(Matcher::UrlEncoded("query".into(), "day".into()))
+                .with_status(400)
+                .with_body("{\"error\":\"Too many results returned. Please refine your query.\"}")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.search(model::SearchRequest { query: "day".into(), adult: None }));
+
+            assert!(result.is_err());
+            assert_eq!("Too many results returned. Please refine your query.", result.unwrap_err());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn missing_parameters() {
+            let api = HolidayEventApi::new("abc123".into(), None).unwrap();
+            let result = aw!(api.search(model::SearchRequest { query: "".into(), adult: None }));
+
+            assert!(result.is_err());
+            assert_eq!("Search query is required.", result.unwrap_err());
         }
     }
 }

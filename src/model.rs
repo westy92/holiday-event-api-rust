@@ -50,6 +50,28 @@ pub struct GetEventInfoResponse {
     rate_limit: RateLimit,
 }
 
+/// The Request struct for calling search.
+#[derive(Debug)]
+pub struct SearchRequest {
+    /// The search query. Must be at least 3 characters long.
+    pub query: String,
+    /// Include events that may be unsafe for viewing at work or by children. Default is false.
+    pub adult: Option<bool>,
+}
+
+/// The Response struct returned by get_events
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct SearchResponse {
+    /// The search query
+    pub query: String,
+    /// Whether Adult entries can be included
+    pub adult: bool,
+    /// The found Events
+    pub events: Vec<EventSummary>,
+    #[serde(skip_deserializing)]
+    rate_limit: RateLimit,
+}
+
 /// Information about an Event
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct EventInfo {
@@ -228,6 +250,15 @@ impl RateLimited for GetEventsResponse {
 }
 
 impl RateLimited for GetEventInfoResponse {
+    fn get_rate_limit(&self) -> &RateLimit {
+        &self.rate_limit
+    }
+    fn set_rate_limit(&mut self, rate_limit: RateLimit) {
+        self.rate_limit = rate_limit;
+    }
+}
+
+impl RateLimited for SearchResponse {
     fn get_rate_limit(&self) -> &RateLimit {
         &self.rate_limit
     }
