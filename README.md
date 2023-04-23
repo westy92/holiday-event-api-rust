@@ -3,6 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/holiday_event_api)](https://crates.io/crates/holiday_event_api)
 [![Build Status](https://github.com/westy92/holiday-event-api-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/westy92/holiday-event-api-rust/actions)
 [![docs.rs](https://img.shields.io/docsrs/holiday_event_api)](https://docs.rs/holiday_event_api)
+[![Code Coverage](https://codecov.io/gh/westy92/holiday-event-api-rust/branch/main/graph/badge.svg)](https://codecov.io/gh/westy92/holiday-event-api-rust)
 [![Funding Status](https://img.shields.io/github/sponsors/westy92)](https://github.com/sponsors/westy92)
 
 Industry-leading Holiday and Event API for Rust. Over 5,000 holidays and thousands of descriptions. Trusted by the World’s leading companies. Built by developers for developers since 2011.
