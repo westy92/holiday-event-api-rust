@@ -27,7 +27,7 @@ pub struct GetEventsResponse {
     /// Multi-day Events that are continuing their observance on Date
     pub multiday_ongoing: Vec<EventSummary>,
     #[serde(skip_deserializing)]
-    rate_limit: RateLimit,
+    pub rate_limit: RateLimit,
 }
 
 /// The Request struct for calling get_event_info.
@@ -47,7 +47,7 @@ pub struct GetEventInfoResponse {
     /// The Event Info
     pub event: EventInfo,
     #[serde(skip_deserializing)]
-    rate_limit: RateLimit,
+    pub rate_limit: RateLimit,
 }
 
 /// The Request struct for calling search.
@@ -69,7 +69,7 @@ pub struct SearchResponse {
     /// The found Events
     pub events: Vec<EventSummary>,
     #[serde(skip_deserializing)]
-    rate_limit: RateLimit,
+    pub rate_limit: RateLimit,
 }
 
 /// Information about an Event
@@ -240,32 +240,22 @@ pub struct RateLimit {
 }
 
 pub trait RateLimited {
-    fn get_rate_limit(&self) -> &RateLimit;
     fn set_rate_limit(&mut self, rate_limit: RateLimit);
 }
 
 impl RateLimited for GetEventsResponse {
-    fn get_rate_limit(&self) -> &RateLimit {
-        &self.rate_limit
-    }
     fn set_rate_limit(&mut self, rate_limit: RateLimit) {
         self.rate_limit = rate_limit;
     }
 }
 
 impl RateLimited for GetEventInfoResponse {
-    fn get_rate_limit(&self) -> &RateLimit {
-        &self.rate_limit
-    }
     fn set_rate_limit(&mut self, rate_limit: RateLimit) {
         self.rate_limit = rate_limit;
     }
 }
 
 impl RateLimited for SearchResponse {
-    fn get_rate_limit(&self) -> &RateLimit {
-        &self.rate_limit
-    }
     fn set_rate_limit(&mut self, rate_limit: RateLimit) {
         self.rate_limit = rate_limit;
     }

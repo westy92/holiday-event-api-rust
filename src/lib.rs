@@ -17,36 +17,41 @@ static APP_USER_AGENT: &str = concat!("HolidayApiRust/", env!("CARGO_PKG_VERSION
 
 impl HolidayEventApi {
     pub fn new(api_key: String, base_url: Option<String>) -> Result<Self, String> {
-        if api_key.is_empty() {
+        let api_key_header = HeaderValue::from_str(&api_key.as_str());
+        if api_key.is_empty() || api_key_header.is_err() {
             return Err("Please provide a valid API key. Get one at https://apilayer.com/marketplace/checkiday-api#pricing.".into());
         }
-        // TODO expose and test more errors
         let mut headers = header::HeaderMap::new();
-        headers.insert(
-            "apikey",
-            header::HeaderValue::from_str(&api_key.as_str()).unwrap(),
-        );
+        headers.insert("apikey", api_key_header.unwrap());
         let rustc = rustc_version_runtime::version();
         headers.insert(
             "X-Platform-Version",
-            header::HeaderValue::from_str(&rustc.to_string()).unwrap(),
+            HeaderValue::from_str(&rustc.to_string()).unwrap(),
         );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .user_agent(APP_USER_AGENT)
             .timeout(Duration::from_secs(10))
-            .build()
-            .unwrap();
+            .build();
+
+        if client.is_err() {
+            return Err("Error instantiating client.".into());
+        }
 
         let base_url = Url::parse(
             base_url
                 .unwrap_or("https://api.apilayer.com/checkiday/".to_string())
                 .as_str(),
-        )
-        .unwrap();
+        );
+        if base_url.is_err() {
+            return Err("Invalid base_url.".into());
+        }
 
-        Ok(Self { client, base_url })
+        Ok(Self {
+            client: client.unwrap(),
+            base_url: base_url.unwrap(),
+        })
     }
 
     /// Gets the Events for the provided Date
@@ -186,14 +191,19 @@ mod tests {
         }
 
         #[test]
+        fn fails_with_invalid_base_url() {
+            let result = HolidayEventApi::new("abc123".into(), Some("derp".into()));
+            assert_eq!(true, result.is_err());
+            assert_eq!("Invalid base_url.".to_string(), result.unwrap_err());
+        }
+
+        #[test]
         fn returns_a_new_client() {
             assert!(HolidayEventApi::new("abc123".into(), None).is_ok());
         }
     }
 
     mod common_functionality {
-        use crate::model::RateLimited;
-
         use super::*;
 
         #[test]
@@ -426,8 +436,8 @@ mod tests {
 
             assert!(result.is_ok());
             let result = result.unwrap();
-            assert_eq!(100, result.get_rate_limit().limit_month);
-            assert_eq!(88, result.get_rate_limit().remaining_month);
+            assert_eq!(100, result.rate_limit.limit_month);
+            assert_eq!(88, result.rate_limit.remaining_month);
 
             mock.assert();
         }

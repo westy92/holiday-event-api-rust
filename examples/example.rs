@@ -1,5 +1,5 @@
 use holiday_event_api::{
-    model::{GetEventInfoRequest, GetEventsRequest, RateLimited, SearchRequest},
+    model::{GetEventInfoRequest, GetEventsRequest, SearchRequest},
     HolidayEventApi,
 };
 
@@ -35,10 +35,9 @@ async fn main() {
         "Today is {}! Find more information at: {}.",
         event.name, event.url
     );
-    let rate_limit = events.get_rate_limit();
     println!(
         "Rate limit remaining: {}/{} (month).",
-        rate_limit.remaining_month, rate_limit.limit_month
+        events.rate_limit.remaining_month, events.rate_limit.limit_month
     );
 
     // Get Event Information
