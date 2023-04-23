@@ -267,7 +267,7 @@ mod tests {
 
             if cfg!(target_os = "macos") {
                 assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 61)", result.unwrap_err());
-            } else if cfg!(target_os = "unix") {
+            } else if cfg!(target_os = "linux") {
                 assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 111)", result.unwrap_err());
             } else {
                 assert_eq!("Not Found", result.unwrap_err());
