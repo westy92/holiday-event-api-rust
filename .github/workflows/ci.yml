@@ -19,15 +19,11 @@ jobs:
         toolchain: stable
         override: true
 
-    - name: Build and Test
-      uses: actions-rs/cargo@v1
-      with:
-        command: install cargo-tarpaulin
+    - name: Install tarpaulin
+      run: /home/runner/.cargo/bin/cargo install cargo-tarpaulin
 
     - name: Build and Test
-      uses: actions-rs/cargo@v1
-      with:
-        command: tarpaulin
+      run: /home/runner/.cargo/bin/cargo tarpaulin
 
     - name: Upload coverage to Codecov
       if: ${{ matrix.os == 'ubuntu-latest' }}
