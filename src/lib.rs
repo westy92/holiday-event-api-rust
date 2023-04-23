@@ -440,7 +440,7 @@ mod tests {
 
             assert!(result.is_ok());
             let result = result.unwrap();
-            assert_eq!(2, result.event.occurrences.len());
+            assert_eq!(3, result.event.occurrences.len());
             assert_eq!(&model::Occurrence {
                 date: model::OccurrenceDate::Date("08/08/2002".into()),
                 length: 1,
@@ -449,6 +449,10 @@ mod tests {
                 date: model::OccurrenceDate::Timestamp(1734772794),
                 length: 1,
             }, result.event.occurrences.get(1).unwrap());
+            assert_eq!(&model::Occurrence {
+                date: model::OccurrenceDate::Timestamp(-12345),
+                length: 7,
+            }, result.event.occurrences.get(2).unwrap());
 
             mock.assert();
         }
