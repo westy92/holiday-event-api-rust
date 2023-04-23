@@ -11,6 +11,10 @@ readme = "README.md"
 categories = ["date-and-time", "api-bindings", "asynchronous", "authentication", "web-programming"]
 keywords = ["holiday", "holidays", "event", "api", "checkiday"]
 authors = ["Seth Westphal", "Westy92 LLC"]
+include = [
+    "src/**/*.rs",
+    "Cargo.toml",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
