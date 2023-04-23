@@ -22,7 +22,7 @@ jobs:
     - name: Test with Coverage
       uses: actions-rs/tarpaulin@v0.1
       with:
-        version: '0.25.2'
+        version: '0.22.0' # last version that seems to work (application/gzip)
 
     - name: Upload coverage to Codecov
       if: ${{ matrix.os == 'ubuntu-latest' }}
