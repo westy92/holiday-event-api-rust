@@ -20,10 +20,10 @@ jobs:
         override: true
 
     - name: Install tarpaulin
-      run: /home/runner/.cargo/bin/cargo install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
 
     - name: Build and Test
-      run: /home/runner/.cargo/bin/cargo tarpaulin
+      run: cargo tarpaulin
 
     - name: Upload coverage to Codecov
       if: ${{ matrix.os == 'ubuntu-latest' }}
