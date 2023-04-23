@@ -137,7 +137,8 @@ pub enum OccurrenceDate {
 
 impl<'de> Deserialize<'de> for OccurrenceDate {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: serde::Deserializer<'de>
+    where
+        D: serde::Deserializer<'de>,
     {
         struct OccurrenceDateVisitor;
 
@@ -149,19 +150,22 @@ impl<'de> Deserialize<'de> for OccurrenceDate {
             }
 
             fn visit_i64<E>(self, date: i64) -> Result<Self::Value, E>
-                where E: serde::de::Error
+            where
+                E: serde::de::Error,
             {
                 Ok(OccurrenceDate::Timestamp(date))
             }
 
             fn visit_u64<E>(self, date: u64) -> Result<Self::Value, E>
-                where E: serde::de::Error
+            where
+                E: serde::de::Error,
             {
                 Ok(OccurrenceDate::Timestamp(date as i64))
             }
 
             fn visit_str<E>(self, date: &str) -> Result<Self::Value, E>
-                where E: serde::de::Error
+            where
+                E: serde::de::Error,
             {
                 Ok(OccurrenceDate::Date(date.to_string()))
             }
