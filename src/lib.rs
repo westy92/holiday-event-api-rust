@@ -221,7 +221,7 @@ mod tests {
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }))
             .is_ok());
 
@@ -247,7 +247,7 @@ mod tests {
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }))
             .is_ok());
 
@@ -270,7 +270,7 @@ mod tests {
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }))
             .is_ok());
 
@@ -292,7 +292,7 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert_eq!("MyError!", result.unwrap_err());
@@ -314,7 +314,7 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert_eq!("Internal Server Error", result.unwrap_err());
@@ -336,7 +336,7 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert_eq!("599", result.unwrap_err());
@@ -351,7 +351,7 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             if cfg!(target_os = "macos") {
@@ -377,7 +377,7 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert_eq!("Can't parse response: error decoding response body: EOF while parsing an object at line 1 column 1", result.unwrap_err());
@@ -407,7 +407,7 @@ mod tests {
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }))
             .is_ok());
 
@@ -431,13 +431,17 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(100, result.rate_limit.limit_month);
-            assert_eq!(88, result.rate_limit.remaining_month);
+            assert_eq!(
+                model::RateLimit {
+                    limit_month: 100,
+                    remaining_month: 88,
+                },
+                result.unwrap().rate_limit
+            );
 
             mock.assert();
         }
@@ -460,25 +464,52 @@ mod tests {
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
-                timezone: None
+                timezone: None,
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(false, result.adult);
-            assert_eq!("America/Chicago", result.timezone);
-            assert_eq!(2, result.events.len());
-            assert_eq!(1, result.multiday_starting.len());
-            assert_eq!(2, result.multiday_ongoing.len());
-            assert_eq!(
-                &model::EventSummary {
-                    id: "b80630ae75c35f34c0526173dd999cfc".into(),
-                    name: "Cinco de Mayo".into(),
-                    url: "https://www.checkiday.com/b80630ae75c35f34c0526173dd999cfc/cinco-de-mayo"
-                        .into(),
-                },
-                result.events.get(0).unwrap()
-            );
+            assert_eq!(model::GetEventsResponse {
+                adult: false,
+                date: model::DateOrTimestamp::Date("05/05/2025".into()),
+                timezone: "America/Chicago".into(),
+                events: vec![
+                    model::EventSummary {
+                        id: "b80630ae75c35f34c0526173dd999cfc".into(),
+                        name: "Cinco de Mayo".into(),
+                        url: "https://www.checkiday.com/b80630ae75c35f34c0526173dd999cfc/cinco-de-mayo"
+                            .into(),
+                    },
+                    model::EventSummary {
+                        id: "50bd02adb1a5fb297657a46a1b6b1082".into(),
+                        name: "Great Lakes Awareness Day".into(),
+                        url: "https://www.checkiday.com/50bd02adb1a5fb297657a46a1b6b1082/great-lakes-awareness-day"
+                            .into(),
+                    },
+                ],
+                multiday_starting: vec![
+                    model::EventSummary {
+                        id: "b9321bf3ce70e98fb385cb03d2f0cac4".into(),
+                        name: "Teacher Appreciation Week".into(),
+                        url: "https://www.checkiday.com/b9321bf3ce70e98fb385cb03d2f0cac4/teacher-appreciation-week"
+                            .into(),
+                    },
+                ],
+                multiday_ongoing: vec![
+                    model::EventSummary {
+                        id: "676cd91e31adcacd0a505117d2c4a842".into(),
+                        name: "Be Kind to Animals Week".into(),
+                        url: "https://www.checkiday.com/676cd91e31adcacd0a505117d2c4a842/be-kind-to-animals-week"
+                            .into(),
+                    },
+                    model::EventSummary {
+                        id: "decc6d9d46ac1e40bf345d963fe2a7a2".into(),
+                        name: "National Children's Mental Health Awareness Week".into(),
+                        url: "https://www.checkiday.com/decc6d9d46ac1e40bf345d963fe2a7a2/national-childrens-mental-health-awareness-week"
+                            .into(),
+                    },
+                ],
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0 },
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -492,30 +523,45 @@ mod tests {
                 .match_query(Matcher::AllOf(vec![
                     Matcher::UrlEncoded("adult".into(), "true".into()),
                     Matcher::UrlEncoded("timezone".into(), "America/New_York".into()),
-                    Matcher::UrlEncoded("date".into(), "7/16/1992".into()),
+                    Matcher::UrlEncoded("date".into(), "now".into()),
                 ]))
                 .with_body_from_file("testdata/getEvents-parameters.json")
                 .create();
 
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
-                date: Some("7/16/1992".into()),
+                date: Some("now".into()),
                 adult: Some(true),
-                timezone: Some("America/New_York".into())
+                timezone: Some("America/New_York".into()),
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(true, result.adult);
-            assert_eq!("America/New_York", result.timezone);
-            assert_eq!(2, result.events.len());
-            assert_eq!(0, result.multiday_starting.len());
-            assert_eq!(1, result.multiday_ongoing.len());
-            assert_eq!(&model::EventSummary {
-                id: "6ebb6fd5e483de2fde33969a6c398472".into(),
-                name: "Get to Know Your Customers Day".into(),
-                url: "https://www.checkiday.com/6ebb6fd5e483de2fde33969a6c398472/get-to-know-your-customers-day".into(),
-            }, result.events.get(0).unwrap());
+            assert_eq!(model::GetEventsResponse {
+                timezone: "America/New_York".into(),
+                date: model::DateOrTimestamp::Timestamp(1682652947),
+                adult: true,
+                events: vec![
+                    model::EventSummary {
+                        id: "6ebb6fd5e483de2fde33969a6c398472".into(),
+                        name: "Get to Know Your Customers Day".into(),
+                        url: "https://www.checkiday.com/6ebb6fd5e483de2fde33969a6c398472/get-to-know-your-customers-day".into(),
+                    },
+                    model::EventSummary {
+                        id: "b99556564fabc2f39e1b97c9a40e1e15".into(),
+                        name: "National Atomic Veterans Day".into(),
+                        url: "https://www.checkiday.com/b99556564fabc2f39e1b97c9a40e1e15/national-atomic-veterans-day".into(),
+                    },
+                ],
+                multiday_starting: vec![],
+                multiday_ongoing: vec![
+                    model::EventSummary {
+                        id: "9c64b0803f77735dc76c0cc0b6a1ccf0".into(),
+                        name: "Hitchhiking Month".into(),
+                        url: "https://www.checkiday.com/9c64b0803f77735dc76c0cc0b6a1ccf0/hitchhiking-month".into(),
+                    },
+                ],
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0, }
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -541,13 +587,93 @@ mod tests {
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "f90b893ea04939d7456f30c54f68d7b4".into(),
                 start: None,
-                end: None
+                end: None,
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!("f90b893ea04939d7456f30c54f68d7b4", result.event.id);
-            assert_eq!(2, result.event.hashtags.len());
+            assert_eq!(model::GetEventInfoResponse {
+                event: model::EventInfo {
+                    id: "f90b893ea04939d7456f30c54f68d7b4".into(),
+                    name: "International Cat Day".into(),
+                    url: "https://www.checkiday.com/f90b893ea04939d7456f30c54f68d7b4/international-cat-day".into(),
+                    alternate_names: vec![model::AlternateName {
+                        first_year: Some(2005),
+                        last_year: None,
+                        name: "TEST".into(),
+                    }],
+                    adult: false,
+                    hashtags: Some(vec!["InternationalCatDay".into(), "CatDay".into()]),
+                    image: Some(model::ImageInfo {
+                        small: "https://static.checkiday.com/img/300/kittens-555822.jpg".into(),
+                        medium: "https://static.checkiday.com/img/600/kittens-555822.jpg".into(),
+                        large: "https://static.checkiday.com/img/1200/kittens-555822.jpg".into(),
+                     }),
+                    sources: Some(vec![
+                        "https://www.source.com/1".into(),
+                        "https://www.source.org/2".into(),
+                    ]),
+                    description: Some(model::RichText {
+                        text: Some("International Cat Day celebrates love for cats...".into()),
+                        html: Some("<p>International Cat Day <a href=\"https://www.google.com\">celebrates</a> love for cats...</p>".into()),
+                        markdown: Some("International Cat Day [celebrates](https://www.google.com) love for cats...".into()),
+                    }),
+                    how_to_observe: Some(model::RichText {
+                        text: Some("Spend the day playing with your cat...".into()),
+                        html: Some("<p>Spend the day <a href=\"https://www.bing.com\">playing</a> with your cat...</p>".into()),
+                        markdown: Some("Spend the day [playing](https://www.bing.com) with your cat...".into()),
+                    }),
+                    patterns: Some(vec![
+                        model::Pattern{
+                            first_year: Some(2002),
+                            last_year: None,
+                            observed: "annually on August 8th".into(),
+                            observed_html: "annually on <a href=\"https://www.checkiday.com/8/8\">August 8th</a>".into(),
+                            observed_markdown: "annually on [August 8th](https://www.checkiday.com/8/8)".into(),
+                            length: 1,
+                        }
+                    ]),
+                    founders: Some(vec![
+                        model::FounderInfo {
+                            name: "International Fund For Animal Welfare".into(),
+                            date: Some("2002".into()),
+                            url: Some("https://www.ifaw.org/".into()),
+                        }
+                    ]),
+                    occurrences: Some(vec![
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2020".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2021".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2022".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2023".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2024".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Timestamp(1734772794),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Timestamp(-12345),
+                            length: 7,
+                        },
+                    ]),
+                    analytics: Some(model::Analytics { overall_rank: 12, social_rank: 34, social_shares: 56, popularity: "★★★☆☆".into() }),
+                    tags: Some(vec![model::Tag{name: "A".into()}, model::Tag{name: "B".into()}]),
+                },
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0, }
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -570,33 +696,126 @@ mod tests {
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "f90b893ea04939d7456f30c54f68d7b4".into(),
                 start: Some(2002),
-                end: Some(2003)
+                end: Some(2003),
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(3, result.event.occurrences.len());
-            assert_eq!(
-                &model::Occurrence {
-                    date: model::OccurrenceDate::Date("08/08/2002".into()),
-                    length: 1,
+            assert_eq!(model::GetEventInfoResponse {
+                event: model::EventInfo {
+                    id: "f90b893ea04939d7456f30c54f68d7b4".into(),
+                    name: "International Cat Day".into(),
+                    url: "https://www.checkiday.com/f90b893ea04939d7456f30c54f68d7b4/international-cat-day".into(),
+                    alternate_names: vec![model::AlternateName {
+                        first_year: Some(2005),
+                        last_year: None,
+                        name: "TEST".into(),
+                    }],
+                    adult: false,
+                    hashtags: Some(vec!["InternationalCatDay".into(), "CatDay".into()]),
+                    image: Some(model::ImageInfo {
+                        small: "https://static.checkiday.com/img/300/kittens-555822.jpg".into(),
+                        medium: "https://static.checkiday.com/img/600/kittens-555822.jpg".into(),
+                        large: "https://static.checkiday.com/img/1200/kittens-555822.jpg".into(),
+                     }),
+                    sources: Some(vec![
+                        "https://www.source.com/1".into(),
+                        "https://www.source.org/2".into(),
+                    ]),
+                    description: Some(model::RichText {
+                        text: Some("International Cat Day celebrates love for cats...".into()),
+                        html: Some("<p>International Cat Day <a href=\"https://www.google.com\">celebrates</a> love for cats...</p>".into()),
+                        markdown: Some("International Cat Day [celebrates](https://www.google.com) love for cats...".into()),
+                    }),
+                    how_to_observe: Some(model::RichText {
+                        text: Some("Spend the day playing with your cat...".into()),
+                        html: Some("<p>Spend the day <a href=\"https://www.bing.com\">playing</a> with your cat...</p>".into()),
+                        markdown: Some("Spend the day [playing](https://www.bing.com) with your cat...".into()),
+                    }),
+                    patterns: Some(vec![
+                        model::Pattern{
+                            first_year: Some(2002),
+                            last_year: None,
+                            observed: "annually on August 8th".into(),
+                            observed_html: "annually on <a href=\"https://www.checkiday.com/8/8\">August 8th</a>".into(),
+                            observed_markdown: "annually on [August 8th](https://www.checkiday.com/8/8)".into(),
+                            length: 1,
+                        }
+                    ]),
+                    founders: Some(vec![
+                        model::FounderInfo {
+                            name: "International Fund For Animal Welfare".into(),
+                            date: Some("2002".into()),
+                            url: Some("https://www.ifaw.org/".into()),
+                        }
+                    ]),
+                    occurrences: Some(vec![
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Date("08/08/2002".into()),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Timestamp(1734772794),
+                            length: 1,
+                        },
+                        model::Occurrence {
+                            date: model::DateOrTimestamp::Timestamp(-12345),
+                            length: 7,
+                        },
+                    ]),
+                    analytics: Some(model::Analytics { overall_rank: 12, social_rank: 34, social_shares: 56, popularity: "★★★☆☆".into() }),
+                    tags: Some(vec![model::Tag{name: "A".into()}, model::Tag{name: "B".into()}]),
                 },
-                result.event.occurrences.get(0).unwrap()
-            );
-            assert_eq!(
-                &model::Occurrence {
-                    date: model::OccurrenceDate::Timestamp(1734772794),
-                    length: 1,
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0, }
+            }, result.unwrap());
+
+            mock.assert();
+        }
+
+        #[test]
+        fn fetches_with_starter_plan() {
+            let mut server = Server::new();
+
+            let mock = server
+                .mock("GET", "/event")
+                .match_query(Matcher::UrlEncoded(
+                    "id".into(),
+                    "1a85c01ea2a6e3f921667c59391aa7ee".into(),
+                ))
+                .with_body_from_file("testdata/getEventInfo-starter.json")
+                .create();
+
+            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let result = aw!(api.get_event_info(model::GetEventInfoRequest {
+                id: "1a85c01ea2a6e3f921667c59391aa7ee".into(),
+                start: None,
+                end: None,
+            }));
+
+            assert!(result.is_ok());
+            assert_eq!(model::GetEventInfoResponse {
+                event: model::EventInfo {
+                    id: "1a85c01ea2a6e3f921667c59391aa7ee".into(),
+                    name: "International Pay it Forward Day".into(),
+                    url: "https://www.checkiday.com/1a85c01ea2a6e3f921667c59391aa7ee/international-pay-it-forward-day".into(),
+                    alternate_names: vec![model::AlternateName {
+                        first_year: None,
+                        last_year: None,
+                        name: "Pay it Forward Day".into(),
+                    }],
+                    adult: false,
+                    hashtags: None,
+                    image: None,
+                    sources: None,
+                    description: None,
+                    patterns: None,
+                    how_to_observe: None,
+                    founders: None,
+                    occurrences: None,
+                    analytics: None,
+                    tags: None,
                 },
-                result.event.occurrences.get(1).unwrap()
-            );
-            assert_eq!(
-                &model::Occurrence {
-                    date: model::OccurrenceDate::Timestamp(-12345),
-                    length: 7,
-                },
-                result.event.occurrences.get(2).unwrap()
-            );
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0, }
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -658,19 +877,27 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "zucchini".into(),
-                adult: None
+                adult: None,
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(false, result.adult);
-            assert_eq!("zucchini", result.query);
-            assert_eq!(3, result.events.len());
-            assert_eq!(&model::EventSummary {
-                id: "cc81cbd8730098456f85f69798cbc867".into(),
-                name: "National Zucchini Bread Day".into(),
-                url: "https://www.checkiday.com/cc81cbd8730098456f85f69798cbc867/national-zucchini-bread-day".into(),
-            }, result.events.get(0).unwrap());
+            assert_eq!(model::SearchResponse {
+                query: "zucchini".into(),
+                adult: false,
+                events: vec![
+                    model::EventSummary {
+                        id: "cc81cbd8730098456f85f69798cbc867".into(),
+                        name: "National Zucchini Bread Day".into(),
+                        url: "https://www.checkiday.com/cc81cbd8730098456f85f69798cbc867/national-zucchini-bread-day".into(),
+                    },
+                    model::EventSummary {
+                        id: "778e08321fc0ca4ec38fbf507c0e6c26".into(),
+                        name: "National Zucchini Day".into(),
+                        url: "https://www.checkiday.com/778e08321fc0ca4ec38fbf507c0e6c26/national-zucchini-day".into(),
+                    },
+                ],
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0 },
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -689,19 +916,22 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "porch day".into(),
-                adult: Some(true)
+                adult: Some(true),
             }));
 
             assert!(result.is_ok());
-            let result = result.unwrap();
-            assert_eq!(true, result.adult);
-            assert_eq!("porch day", result.query);
-            assert_eq!(1, result.events.len());
-            assert_eq!(&model::EventSummary {
-                id: "61363236f06e4eb8e4e14e5925c2503d".into(),
-                name: "Sneak Some Zucchini Onto Your Neighbor's Porch Day".into(),
-                url: "https://www.checkiday.com/61363236f06e4eb8e4e14e5925c2503d/sneak-some-zucchini-onto-your-neighbors-porch-day".into(),
-            }, result.events.get(0).unwrap());
+            assert_eq!(model::SearchResponse {
+                query: "porch day".into(),
+                adult: true,
+                events: vec![
+                    model::EventSummary {
+                        id: "61363236f06e4eb8e4e14e5925c2503d".into(),
+                        name: "Sneak Some Zucchini Onto Your Neighbor's Porch Day".into(),
+                        url: "https://www.checkiday.com/61363236f06e4eb8e4e14e5925c2503d/sneak-some-zucchini-onto-your-neighbors-porch-day".into(),
+                    },
+                ],
+                rate_limit: model::RateLimit { limit_month: 0, remaining_month: 0 },
+            }, result.unwrap());
 
             mock.assert();
         }
@@ -720,7 +950,7 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "a".into(),
-                adult: None
+                adult: None,
             }));
 
             assert!(result.is_err());
@@ -743,7 +973,7 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "day".into(),
-                adult: None
+                adult: None,
             }));
 
             assert!(result.is_err());
@@ -760,7 +990,7 @@ mod tests {
             let api = HolidayEventApi::new("abc123".into(), None).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "".into(),
-                adult: None
+                adult: None,
             }));
 
             assert!(result.is_err());

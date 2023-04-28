@@ -16,8 +16,8 @@ pub struct GetEventsRequest {
 pub struct GetEventsResponse {
     /// Whether Adult entries can be included
     pub adult: bool,
-    /// The Date string
-    pub date: String,
+    /// The Date string or timestamp
+    pub date: DateOrTimestamp,
     /// The Timezone used to calculate the Date's Events
     pub timezone: String,
     /// The Date's Events
@@ -86,21 +86,25 @@ pub struct EventInfo {
     /// The Event's Alternate Names
     pub alternate_names: Vec<AlternateName>,
     /// The Event's hashtags
-    pub hashtags: Vec<String>,
+    pub hashtags: Option<Vec<String>>,
     /// The Event's images
-    pub image: ImageInfo,
+    pub image: Option<ImageInfo>,
     /// The Event's sources
-    pub sources: Vec<String>,
+    pub sources: Option<Vec<String>>,
     /// The Event's description
-    pub description: RichText,
+    pub description: Option<RichText>,
     /// How to observe the Event
-    pub how_to_observe: RichText,
+    pub how_to_observe: Option<RichText>,
     /// Patterns defining when the Event is observed
-    pub patterns: Vec<Pattern>,
+    pub patterns: Option<Vec<Pattern>>,
     /// The Event Occurrences (when it occurs)
-    pub occurrences: Vec<Occurrence>,
+    pub occurrences: Option<Vec<Occurrence>>,
     /// The Event's founders
-    pub founders: Vec<FounderInfo>,
+    pub founders: Option<Vec<FounderInfo>>,
+    // The Event's Analytics
+    pub analytics: Option<Analytics>,
+    // The Event's Tags
+    pub tags: Option<Vec<Tag>>,
 }
 
 /// Information about an Event's Pattern
@@ -124,26 +128,26 @@ pub struct Pattern {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Occurrence {
     /// The date or timestamp the Event occurs
-    pub date: OccurrenceDate,
+    pub date: DateOrTimestamp,
     /// The length (in days) of the Event occurrence
     pub length: i32,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum OccurrenceDate {
+pub enum DateOrTimestamp {
     Date(String),
     Timestamp(i64),
 }
 
-impl<'de> Deserialize<'de> for OccurrenceDate {
+impl<'de> Deserialize<'de> for DateOrTimestamp {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct OccurrenceDateVisitor;
+        struct DateOrTimestampVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for OccurrenceDateVisitor {
-            type Value = OccurrenceDate;
+        impl<'de> serde::de::Visitor<'de> for DateOrTimestampVisitor {
+            type Value = DateOrTimestamp;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 f.write_str("OccurrenceDate as a number or string")
@@ -153,25 +157,25 @@ impl<'de> Deserialize<'de> for OccurrenceDate {
             where
                 E: serde::de::Error,
             {
-                Ok(OccurrenceDate::Timestamp(date))
+                Ok(DateOrTimestamp::Timestamp(date))
             }
 
             fn visit_u64<E>(self, date: u64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(OccurrenceDate::Timestamp(date as i64))
+                Ok(DateOrTimestamp::Timestamp(date as i64))
             }
 
             fn visit_str<E>(self, date: &str) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(OccurrenceDate::Date(date.to_string()))
+                Ok(DateOrTimestamp::Date(date.to_string()))
             }
         }
 
-        deserializer.deserialize_any(OccurrenceDateVisitor)
+        deserializer.deserialize_any(DateOrTimestampVisitor)
     }
 }
 
@@ -228,6 +232,26 @@ pub struct FounderInfo {
     pub url: Option<String>,
     /// The date the Event was founded
     pub date: Option<String>,
+}
+
+/// Analytics about an Event
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct Analytics {
+    /// The Event's overall rank. #1 is the most popular.
+    pub overall_rank: i32,
+    /// The Event's social rank. #1 is the most popular.
+    pub social_rank: i32,
+    /// The number of social shares involving this event.
+    pub social_shares: i32,
+    /// The Event's popularity, as stars from 0-5. i.e. "★★☆☆☆"
+    pub popularity: String,
+}
+
+/// A Tag that categorizes an Event
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct Tag {
+    /// The Tag's name
+    pub name: String,
 }
 
 /// Your API plan's current Rate Limit and status. Upgrade to increase these limits.
