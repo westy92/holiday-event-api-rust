@@ -17,7 +17,7 @@ static APP_USER_AGENT: &str = concat!("HolidayApiRust/", env!("CARGO_PKG_VERSION
 
 impl HolidayEventApi {
     pub fn new(api_key: String, base_url: Option<String>) -> Result<Self, String> {
-        let api_key_header = HeaderValue::from_str(&api_key.as_str());
+        let api_key_header = HeaderValue::from_str(api_key.as_str());
         if api_key.is_empty() || api_key_header.is_err() {
             return Err("Please provide a valid API key. Get one at https://apilayer.com/marketplace/checkiday-api#pricing.".into());
         }
@@ -122,7 +122,7 @@ impl HolidayEventApi {
         let res = self.client.get(url).send().await;
         if res.is_err() {
             let err = res.unwrap_err().to_string();
-            return Err(format!("Can't process request: {err}").into());
+            return Err(format!("Can't process request: {err}"));
         }
         let res = res.unwrap();
         let status = res.status();
