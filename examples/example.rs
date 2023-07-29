@@ -6,7 +6,7 @@ use holiday_event_api::{
 #[tokio::main]
 async fn main() {
     // Get a FREE API key from https://apilayer.com/marketplace/checkiday-api#pricing
-    let client = HolidayEventApi::new("<your API key>".into(), None);
+    let client = HolidayEventApi::new("<your API key>", None);
 
     if client.is_err() {
         println!("{}", client.unwrap_err());

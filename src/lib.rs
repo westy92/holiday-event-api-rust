@@ -13,11 +13,11 @@ pub struct HolidayEventApi {
     base_url: Url,
 }
 
-static APP_USER_AGENT: &str = concat!("HolidayApiRust/", env!("CARGO_PKG_VERSION"),);
+static APP_USER_AGENT: &str = concat!("HolidayApiRust/", env!("CARGO_PKG_VERSION"));
 
 impl HolidayEventApi {
-    pub fn new(api_key: String, base_url: Option<String>) -> Result<Self, String> {
-        let api_key_header = HeaderValue::from_str(api_key.as_str());
+    pub fn new(api_key: &str, base_url: Option<&str>) -> Result<Self, String> {
+        let api_key_header = HeaderValue::try_from(api_key);
         if api_key.is_empty() || api_key_header.is_err() {
             return Err("Please provide a valid API key. Get one at https://apilayer.com/marketplace/checkiday-api#pricing.".into());
         }
@@ -26,32 +26,24 @@ impl HolidayEventApi {
         let rustc = rustc_version_runtime::version();
         headers.insert(
             "X-Platform-Version",
-            HeaderValue::from_str(&rustc.to_string()).unwrap(),
+            HeaderValue::try_from(&rustc.to_string()).unwrap(),
         );
 
-        let client = reqwest::Client::builder()
+        let Ok(client) = reqwest::Client::builder()
             .default_headers(headers)
             .user_agent(APP_USER_AGENT)
             .timeout(Duration::from_secs(10))
-            .build();
+            .build() else {
+                return Err("Error instantiating client.".into());
+            };
 
-        if client.is_err() {
-            return Err("Error instantiating client.".into());
-        }
-
-        let base_url = Url::parse(
-            base_url
-                .unwrap_or("https://api.apilayer.com/checkiday/".to_string())
-                .as_str(),
-        );
-        if base_url.is_err() {
+        let Ok(base_url) = Url::parse(
+            base_url.unwrap_or("https://api.apilayer.com/checkiday/"),
+        ) else {
             return Err("Invalid base_url.".into());
-        }
+        };
 
-        Ok(Self {
-            client: client.unwrap(),
-            base_url: base_url.unwrap(),
-        })
+        Ok(Self { client, base_url })
     }
 
     /// Gets the Events for the provided Date
@@ -119,16 +111,14 @@ impl HolidayEventApi {
         let mut url = self.base_url.join(&path.to_string()).unwrap();
         url.query_pairs_mut().extend_pairs(params);
 
-        let res = self.client.get(url).send().await;
-        if res.is_err() {
-            let err = res.unwrap_err().to_string();
-            return Err(format!("Can't process request: {err}"));
-        }
-        let res = res.unwrap();
+        let res = match self.client.get(url).send().await {
+            Ok(ok) => ok,
+            Err(e) => return Err(format!("Can't process request: {}", e)),
+        };
         let status = res.status();
         if !status.is_success() {
             let json = res.json::<HashMap<String, String>>().await;
-            if json.is_err()
+            return if json.is_err()
                 || json
                     .as_ref()
                     .unwrap()
@@ -136,34 +126,27 @@ impl HolidayEventApi {
                     .unwrap_or(&"".into())
                     .is_empty()
             {
-                return Err(status.canonical_reason().unwrap_or(status.as_str()).into());
+                Err(status.canonical_reason().unwrap_or(status.as_str()).into())
             } else {
-                return Err(json.unwrap().get("error").unwrap().to_owned());
-            }
+                Err(json.unwrap().get("error").unwrap().to_owned())
+            };
         }
         let headers = res.headers().to_owned();
-        let json = res.json::<T>().await;
-        if json.is_err() {
-            let err = json.unwrap_err().to_string();
-            return Err(format!("Can't parse response: {err}"));
-        }
+        let json = match res.json::<T>().await {
+            Ok(ok) => ok,
+            Err(e) => return Err(format!("Can't parse response: {}", e)),
+        };
         let rate_limit = model::RateLimit {
             limit_month: headers
                 .get("x-ratelimit-limit-month")
-                .unwrap_or(&HeaderValue::from_str("").unwrap())
-                .to_str()
-                .unwrap_or("")
-                .parse::<i32>()
+                .and_then(|h| h.to_str().ok().and_then(|s| s.parse().ok()))
                 .unwrap_or(0),
             remaining_month: headers
                 .get("x-ratelimit-remaining-month")
-                .unwrap_or(&HeaderValue::from_str("").unwrap())
-                .to_str()
-                .unwrap_or("")
-                .parse::<i32>()
+                .and_then(|h| h.to_str().ok().and_then(|s| s.parse().ok()))
                 .unwrap_or(0),
         };
-        let mut result = json.unwrap();
+        let mut result = json;
         result.set_rate_limit(rate_limit);
         Ok(result)
     }
@@ -185,21 +168,21 @@ mod tests {
 
         #[test]
         fn fails_with_missing_api_key() {
-            let result = HolidayEventApi::new("".into(), None);
-            assert_eq!(true, result.is_err());
+            let result = HolidayEventApi::new("", None);
+            assert!(result.is_err());
             assert_eq!("Please provide a valid API key. Get one at https://apilayer.com/marketplace/checkiday-api#pricing.".to_string(), result.unwrap_err());
         }
 
         #[test]
         fn fails_with_invalid_base_url() {
-            let result = HolidayEventApi::new("abc123".into(), Some("derp".into()));
-            assert_eq!(true, result.is_err());
+            let result = HolidayEventApi::new("abc123", Some("derp"));
+            assert!(result.is_err());
             assert_eq!("Invalid base_url.".to_string(), result.unwrap_err());
         }
 
         #[test]
         fn returns_a_new_client() {
-            assert!(HolidayEventApi::new("abc123".into(), None).is_ok());
+            assert!(HolidayEventApi::new("abc123", None).is_ok());
         }
     }
 
@@ -217,7 +200,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -243,7 +226,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -266,7 +249,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -288,7 +271,7 @@ mod tests {
                 .with_body("{\"error\":\"MyError!\"}")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -310,7 +293,7 @@ mod tests {
                 .with_status(500)
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -332,7 +315,7 @@ mod tests {
                 .with_status(599)
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -346,8 +329,8 @@ mod tests {
 
         #[test]
         fn server_error_other() {
-            let fake_url = "http://localhost".to_string();
-            let api = HolidayEventApi::new("abc123".into(), Some(fake_url)).unwrap();
+            let fake_url = "http://localhost";
+            let api = HolidayEventApi::new("abc123", Some(fake_url)).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -373,7 +356,7 @@ mod tests {
                 .with_body("{")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -403,7 +386,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             assert!(aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -427,7 +410,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -460,7 +443,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: None,
                 adult: None,
@@ -528,7 +511,7 @@ mod tests {
                 .with_body_from_file("testdata/getEvents-parameters.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_events(model::GetEventsRequest {
                 date: Some("now".into()),
                 adult: Some(true),
@@ -583,7 +566,7 @@ mod tests {
                 .with_body_from_file("testdata/getEventInfo-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "f90b893ea04939d7456f30c54f68d7b4".into(),
                 start: None,
@@ -692,7 +675,7 @@ mod tests {
                 .with_body_from_file("testdata/getEventInfo-parameters.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "f90b893ea04939d7456f30c54f68d7b4".into(),
                 start: Some(2002),
@@ -784,7 +767,7 @@ mod tests {
                 .with_body_from_file("testdata/getEventInfo-starter.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "1a85c01ea2a6e3f921667c59391aa7ee".into(),
                 start: None,
@@ -834,7 +817,7 @@ mod tests {
                 .with_body("{\"error\":\"Event not found.\"}")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "hi".into(),
                 start: None,
@@ -849,7 +832,7 @@ mod tests {
 
         #[test]
         fn missing_id() {
-            let api = HolidayEventApi::new("abc123".into(), None).unwrap();
+            let api = HolidayEventApi::new("abc123", None).unwrap();
             let result = aw!(api.get_event_info(model::GetEventInfoRequest {
                 id: "".into(),
                 start: None,
@@ -874,7 +857,7 @@ mod tests {
                 .with_body_from_file("testdata/search-default.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "zucchini".into(),
                 adult: None,
@@ -913,7 +896,7 @@ mod tests {
                 .with_body_from_file("testdata/search-parameters.json")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "porch day".into(),
                 adult: Some(true),
@@ -947,7 +930,7 @@ mod tests {
                 .with_body("{\"error\":\"Please enter a longer search term.\"}")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "a".into(),
                 adult: None,
@@ -970,7 +953,7 @@ mod tests {
                 .with_body("{\"error\":\"Too many results returned. Please refine your query.\"}")
                 .create();
 
-            let api = HolidayEventApi::new("abc123".into(), Some(server.url())).unwrap();
+            let api = HolidayEventApi::new("abc123", Some(&server.url())).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "day".into(),
                 adult: None,
@@ -987,7 +970,7 @@ mod tests {
 
         #[test]
         fn missing_parameters() {
-            let api = HolidayEventApi::new("abc123".into(), None).unwrap();
+            let api = HolidayEventApi::new("abc123", None).unwrap();
             let result = aw!(api.search(model::SearchRequest {
                 query: "".into(),
                 adult: None,
