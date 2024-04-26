@@ -120,19 +120,15 @@ impl HolidayEventApi {
         };
         let status = res.status();
         if !status.is_success() {
-            let json = res.json::<HashMap<String, String>>().await;
-            return if json.is_err()
-                || json
-                    .as_ref()
-                    .unwrap()
-                    .get("error")
-                    .unwrap_or(&"".into())
-                    .is_empty()
-            {
-                Err(status.canonical_reason().unwrap_or(status.as_str()).into())
-            } else {
-                Err(json.unwrap().get("error").unwrap().to_owned())
-            };
+            let json = res.json::<HashMap<String, String>>().await.ok();
+            let error = json
+                .as_ref()
+                .and_then(|j| j.get("error").filter(|s| !s.is_empty()));
+            return Err(match error {
+                Some(e) => e,
+                None => status.canonical_reason().unwrap_or(status.as_str()),
+            }
+            .to_string());
         }
         let headers = res.headers().to_owned();
         let json = match res.json::<T>().await {
