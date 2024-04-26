@@ -11,32 +11,27 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v3
-
+    - uses: actions/checkout@v4
     - name: Install latest Rust
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
-
     - name: Lint
       run: cargo fmt --all -- --check
-
     - name: Clippy
       run: cargo clippy
-
     - name: Install tarpaulin
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: cargo install cargo-tarpaulin
-
     - name: Build and Test (Coverage)
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: cargo tarpaulin --out Xml
-
     - name: Build and Test (No Coverage)
       if: ${{ matrix.os != 'ubuntu-latest' }}
       run: cargo test
-
     - name: Upload coverage to Codecov
       if: ${{ matrix.os == 'ubuntu-latest' }}
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}

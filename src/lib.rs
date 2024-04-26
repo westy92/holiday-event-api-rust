@@ -37,9 +37,10 @@ impl HolidayEventApi {
             .default_headers(headers)
             .user_agent(APP_USER_AGENT)
             .timeout(Duration::from_secs(10))
-            .build() else {
-                return Err("Error instantiating client.".into());
-            };
+            .build()
+        else {
+            return Err("Error instantiating client.".into());
+        };
 
         let Ok(base_url) = Url::parse(base_url) else {
             return Err("Invalid base_url.".into());
@@ -119,19 +120,15 @@ impl HolidayEventApi {
         };
         let status = res.status();
         if !status.is_success() {
-            let json = res.json::<HashMap<String, String>>().await;
-            return if json.is_err()
-                || json
-                    .as_ref()
-                    .unwrap()
-                    .get("error")
-                    .unwrap_or(&"".into())
-                    .is_empty()
-            {
-                Err(status.canonical_reason().unwrap_or(status.as_str()).into())
-            } else {
-                Err(json.unwrap().get("error").unwrap().to_owned())
-            };
+            let json = res.json::<HashMap<String, String>>().await.ok();
+            let error = json
+                .as_ref()
+                .and_then(|j| j.get("error").filter(|s| !s.is_empty()));
+            return Err(match error {
+                Some(e) => e,
+                None => status.canonical_reason().unwrap_or(status.as_str()),
+            }
+            .to_string());
         }
         let headers = res.headers().to_owned();
         let json = match res.json::<T>().await {
@@ -339,10 +336,8 @@ mod tests {
                 timezone: None,
             }));
 
-            if cfg!(target_os = "macos") {
-                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 61)", result.unwrap_err());
-            } else if cfg!(target_os = "linux") {
-                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 111)", result.unwrap_err());
+            if cfg!(target_os = "macos") || cfg!(target_os = "linux") {
+                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false)", result.unwrap_err());
             } else {
                 assert_eq!("Not Found", result.unwrap_err());
             }
@@ -365,7 +360,10 @@ mod tests {
                 timezone: None,
             }));
 
-            assert_eq!("Can't parse response: error decoding response body: EOF while parsing an object at line 1 column 1", result.unwrap_err());
+            assert_eq!(
+                "Can't parse response: error decoding response body",
+                result.unwrap_err()
+            );
 
             mock.assert();
         }
