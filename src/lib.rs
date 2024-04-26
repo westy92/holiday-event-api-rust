@@ -37,9 +37,10 @@ impl HolidayEventApi {
             .default_headers(headers)
             .user_agent(APP_USER_AGENT)
             .timeout(Duration::from_secs(10))
-            .build() else {
-                return Err("Error instantiating client.".into());
-            };
+            .build()
+        else {
+            return Err("Error instantiating client.".into());
+        };
 
         let Ok(base_url) = Url::parse(base_url) else {
             return Err("Invalid base_url.".into());
