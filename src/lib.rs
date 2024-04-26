@@ -340,10 +340,8 @@ mod tests {
                 timezone: None,
             }));
 
-            if cfg!(target_os = "macos") {
-                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 61)", result.unwrap_err());
-            } else if cfg!(target_os = "linux") {
-                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false): error trying to connect: tcp connect error: Connection refused (os error 111)", result.unwrap_err());
+            if cfg!(target_os = "macos") || cfg!(target_os = "linux") {
+                assert_eq!("Can't process request: error sending request for url (http://localhost/events?adult=false)", result.unwrap_err());
             } else {
                 assert_eq!("Not Found", result.unwrap_err());
             }
@@ -366,7 +364,10 @@ mod tests {
                 timezone: None,
             }));
 
-            assert_eq!("Can't parse response: error decoding response body: EOF while parsing an object at line 1 column 1", result.unwrap_err());
+            assert_eq!(
+                "Can't parse response: error decoding response body",
+                result.unwrap_err()
+            );
 
             mock.assert();
         }
